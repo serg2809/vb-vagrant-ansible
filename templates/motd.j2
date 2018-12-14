@@ -1,0 +1,17 @@
+Welcome to your quick-brew  linux VM!
+
+This is a "{{ansible_distribution}}" release "{{ansible_distribution_release}}"
+
+Virtual machine is avaliable via these ip addresses:
+"{{ansible_all_ipv4_addresses}}"
+
+Don't forget to change password for user vagrant (in case you skipped this step while running playbook.yml from project directory).
+This playbook was written with assumption that:
+- We use only ipv4, configuration is being delivered via DHCP except DNS servers.
+- Your VM is in private network acessible from your machine only. 
+This can be changed in Vagrantfile, but be aware of things you are doing.
+
+
+You can connect to this machine via "vagrant up", "vagrant ssh".
+For external communication: ssh your_user@ip_from_vagrantfile
+

@@ -1,0 +1,10 @@
+		This system is managed by Ansible
+Any changes that one can do manually could be overwritten by Ansible.
+If you need some changes at this server - contact operations team by email or direct call.
+
+OS: {{ ansible_distribution }}  {{ ansible_distribution_version }}
+Hostname: {{ inventory_hostname }}
+eth1 address: {{ ansible_eth1.ipv4.address }}
+
+All connections attempts are monitored and recorded.
+If you aren't an authorized user - disconnect immediately!

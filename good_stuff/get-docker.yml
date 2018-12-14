@@ -1,0 +1,67 @@
+---
+# This playbook is supposed to work on Fedora linux distribution
+# Sergei Malkov <sergei_malkov@epam.com> tested it with bento/fedora-28 vagrant box
+- hosts: localhost
+  become: yes   
+  tasks:
+
+      - name: "Install python bindings to work with docker-api"
+        yum:
+          name: "{{ item }}"
+          state: latest
+        with_items:
+          - python2-docker
+          - python3-docker
+          
+      - name: "fetch script to install docker and putting it to /tmp" 
+        get_url:
+           url: https://get.docker.com
+           dest: /tmp/get-docker.sh
+           mode: 0755
+           owner: ansible
+           group: ansible
+ 
+      - name: "Installing docker-engine"
+        shell: /bin/sh /tmp/get-docker.sh
+
+
+
+# you may need to modify  this block to affect your user    
+      - name: "Modify users user and vagrant to be able running docker commands"
+        user:
+         name: "{{ item }}"
+         groups: docker 
+         append: yes
+        with_items:
+         - vagrant
+         - user
+    
+      - name: "Start docker daemon and make sure it runs onboot"
+        service:
+          name: docker
+          state: started
+          enabled: yes
+    
+      - name: "Get docker-compose onboard"
+        get_url:
+          url: https://github.com/docker/compose/releases/download/1.23.1/docker-compose-Linux-x86_64
+          mode: 0755
+          dest: /usr/bin/docker-compose
+          owner: root
+          group: root
+
+
+
+
+      - name: "pull bunch of official basic images to work with"
+        docker_image:
+           name: "{{item}}"
+           state: present
+        with_items:
+           - nginx
+           - mysql
+           - redis
+           - alpine
+           - busybox
+           - debian
+           - centos

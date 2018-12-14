@@ -1,0 +1,188 @@
+---
+- hosts: all
+  become: yes
+  tasks:
+      
+      - name: "Upgrade all packages before going further"
+        dnf:
+         name: "*"
+         state: latest
+  
+      - name: "Install useful software"
+        dnf: name={{item}} state=latest
+        with_items:
+            - lsof
+            - mc
+            - vim
+            - tmux
+            - git
+            - tcpdump
+            - nc
+            - nmap
+            - telnet
+            - man-pages
+            - bind-utils
+            - tree
+            - python2-libselinux
+            - python3-libselinux
+            - ntp
+            - firewalld
+            - python3-firewall
+            - rsync
+ 
+#### Creating my user and adding all necessary configuration files
+# You are free to change name of user with whatever your
+      - name: "add user user with password h@ngar51"
+        user:
+          name: user
+          state: present
+          password: $6$yImJqSvRb54zuDH$rE.2sBEuiyZcI/RaA4yL6ZvdhOM5DPZnNpvXiXUl8WqNrBxy4TY.LfZdcw.WqeA5Sr3ueRF5CAM0zsumPypG1/
+          shell: /bin/bash
+          system: no
+          createhome: yes
+
+### run ssh-keygen -t rsa -b 4096 if you need to generate your key; then copy it into key section
+### Whether you have one - just insert your public key below
+      - name: "copying exisiting ssh key for  user"
+        authorized_key:
+         user: user
+         key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDRCDNSU8Pgh30jA/+r6lRhYSruw53RniG8MGG5LiKNMBy0wANhu3Xd8T4rppcQgu3jbRzoLAF73zBtdWniQikF40F3H/bv2g7clmj8jGP2XR+UPddtw3B7jQTjqfMRNAlke/LA14kG++eebkUkZZrYcQ/XAR94yrMUPVVJ+s+Y3NK3p7MSOwkUN+AeYIWvQlGCdQIh9l/+hFgzMiYPMZyVmc50Sc7AA3b50V16d9+HO42D0n/iZEHFEJPL1cX31KoiIJC/pD9lJsoJRKZ657FTIV3088xATj8BfIIN48O11Ie2ABgfUwbg9gmKSg7mT3P8eN1h8vT7xPUPCWqJk+KMrDqzaT/lJ3eJGk8IlHAgYeViwNmCqH2pLsGknSovX1aa9E2TtRgFUp+pXc03yaA0kPU3B1qJZCggjY+NNBVPkI08WynSQzo/T0hZtqb1NvA8vGuWajvKLK+XBMDHdunQsdypxn+PkMXgdiWY7MqlF4tRwz7lVWXHg0bG/cuuXodKGoCWpz9TGIIhFgU3uXJRUZv/JyRtnMyBd/e2aYshazsjVIiXET2tQGbXtIAa619zg1rvcGSuSEhEBY3gukf8s+wTcCtgd097NzK0tKZATotAcrxvBjswjoSVlryhKXikn3woDOrPxf98ty19X2rqWuPZv1E573oQs5blyrxO+Q== moscow\sergei_malkov@EPRUMOSL7675
+
+ 
+      - name:  "add administrative rules for user "
+        lineinfile:
+          path: /etc/sudoers
+          insertafter: "^root"
+          line: "user    ALL=(ALL)       ALL"
+
+
+
+ ### minimal git tweaks
+      - name: "bringing back all necessary configuration files for user"        
+        blockinfile: 
+         create: yes
+         dest: /home/user/.gitconfig
+         mode: 0644
+         owner: user
+         group: user
+         content: |
+            [user]
+             email = your_email@somewhere.com
+             name = Winston Wolf 
+
+##### Making use of special user for ansible
+
+      - name: "adding user ansible and generating ssh keypair"
+        user: 
+          name: ansible
+          state: present
+          shell: /bin/bash
+          system: no
+          createhome: yes
+          generate_ssh_key: yes
+          ssh_key_bits: 4096
+          ssh_key_file: .ssh/id_rsa 
+          ssh_key_comment: "ansible-generated key, by default valid for this host only"
+          
+      - name: "making ssh key for ansible user useful to localhost auth via ssh"
+        command: 
+         cmd: /bin/cp /home/ansible/.ssh/id_rsa.pub /home/ansible/authorized_keys
+ 
+
+      - name: "allow sudo without password for ansible user"
+        lineinfile:
+          path: /etc/sudoers
+          state: present
+          insertafter: 'user    ALL=(ALL)       ALL'
+          line: 'ansible  ALL=(ALL)  NOPASSWD: ALL'
+
+      - name: "restoring ansible inventory from backup"    
+        synchronize:
+         src: /vagrant/good_stuff/
+         dest: /home/ansible/
+
+
+#### Setting timezone, firewall and all like that
+   
+
+      - name: Set timezone to MSK
+        file:
+         src: /usr/share/zoneinfo/Europe/Moscow
+         dest: /etc/localtime
+         state: link
+        become: true
+
+      - name: Ensure that NTP server is running and it starts at boot time
+        service:
+         name: ntpd
+         state: started
+         enabled: yes
+     
+
+     
+# tweaks for sshd
+# We don't permit root login via ssh; change default password for vagrant user 
+
+      - name: "disable root login via ssh"
+        replace:
+          path: /etc/ssh/sshd_config
+          regexp: "PermitRootLogin yes"
+          replace: "PermitRootLogin no"
+      
+      - name: "Password authentication disabled. My trusted ssh-keys only"
+        replace:
+          path: /etc/ssh/sshd_config
+          regexp: "PasswordAuthentication yes"
+          replace: "PasswordAuthentication no"
+       
+      - name: "Make changes working - restart sshd" 
+        service:
+          name: sshd
+          state: restarted
+
+###### Changing default password for vagrant user; to be sure when bringing VM to bridge network.    
+##       
+
+      - name: "modifying password for vagrant user - let it be the same as one for the user"
+        user:
+          name: vagrant
+          state: present
+          password: $6$yImJqSvRb54zuDH$rE.2sBEuiyZcI/RaA4yL6ZvdhOM5DPZnNpvXiXUl8WqNrBxy4TY.LfZdcw.WqeA5Sr3ueRF5CAM0zsumPypG1/
+         
+####### Change configuration files to make this place more comfortable
+
+# Vim
+      - name: "tweak global vimrc to make vimming comfortable"  
+        blockinfile:
+          path: /etc/vimrc
+          insertafter: EOF
+          block: |
+           set nu
+           set ruler
+           set background=dark        
+           
+           
+      - name: "trying to fool that comment section from previous statement"
+        replace:
+         path: /etc/vimrc
+         regexp: '^#'
+         replace: '"'
+      
+### Bringing firwall jazz to the last section           
+      - name: Ensure that Firewalld is running
+        service:
+         name: firewalld
+         state: restarted
+         enabled: yes
+
+      - name: "preparing /etc/motd"
+        template: 
+         src: ./templates/motd.j2
+         dest: /etc/motd
+         owner: root
+         group: root
+         mode: 0644
+         
+
+         
+         
