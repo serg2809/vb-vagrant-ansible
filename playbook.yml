@@ -32,7 +32,7 @@
  
 #### Creating my user and adding all necessary configuration files
 # You are free to change name of user with whatever your
-      - name: "add user user with password h@ngar51"
+      - name: "add user user with password H@ngar51"
         user:
           name: user
           state: present
